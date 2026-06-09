@@ -14,16 +14,20 @@ def get_base_dir():
 EXCEL_FILE = os.path.join(get_base_dir(), "detailing_records.xlsx")
 
 SERVICES = [
-    "Химчистка салона",
-    "Полировка кузова",
-    "Мойка двигателя",
-    "Детейлинг полный",
-    "Покрытие керамикой",
-    "Защитная пленка",
-    "Чернение резины",
-    "Озонирование",
-    "Обезжиривание",
-    "Другое",
+    "Полировка",
+    "Керамика",
+    "Химчистка",
+    "Полимер",
+    "Оклейка",
+    "Покраска дисков",
+    "Покраска кузова",
+    "ПДР",
+    "Мойка мотора",
+    "Реставрация кожи",
+    "Тонировка",
+    "Мойка кузова",
+    "Мойка арок",
+    "Реставрация фар"
 ]
 
 HEADERS = [
@@ -90,36 +94,82 @@ class DetailingApp:
                     widget.bind("<FocusOut>", lambda e, w=widget, h=hint: self._restore_hint(e, w, h))
                 self.entries[key] = var
 
-        def add_label_combo(row, label, key):
-            tk.Label(
-                form_frame, text=label, anchor="w",
-                font=("Helvetica", 11), bg="#f5f5f5", fg="#333"
-            ).grid(row=row, column=0, sticky="w", pady=5, padx=(0, 12))
-
-            var = tk.StringVar()
-            combo = ttk.Combobox(
-                form_frame, textvariable=var,
-                values=SERVICES, state="readonly",
-                font=("Helvetica", 11), width=22
-            )
-            combo.grid(row=row, column=1, sticky="ew", pady=5)
-            self.entries[key] = var
-
         form_frame.columnconfigure(1, weight=1)
 
-        add_label_entry(0,  "Марка *",       "marka")
-        add_label_entry(1,  "г.номер *",     "gnomer")
-        add_label_entry(2,  "Владелец",      "owner",    hint="87XXXXXXXXX")
-        add_label_combo(3,  "Услуга *",      "service")
-        add_label_entry(4,  "Цена (₸) *",   "price")
-        add_label_entry(5,  "Материал (₸)", "material")
-        add_label_entry(6,  "Сумма рабочего", "worker",  readonly=True)
-        add_label_entry(7,  "Расход (₸)",   "rashod")
-        add_label_entry(8,  "Касса (₸)",    "kassa",    readonly=True)
-        add_label_entry(9,  "Примечание",   "note")
+        row_idx = 0
+        add_label_entry(row_idx,  "Марка *",       "marka"); row_idx += 1
+        add_label_entry(row_idx,  "г.номер *",     "gnomer"); row_idx += 1
+        add_label_entry(row_idx,  "Владелец",      "owner",    hint="87XXXXXXXXX"); row_idx += 1
+
+        # Services block
+        tk.Label(
+            form_frame, text="Услуги и цены *", anchor="w",
+            font=("Helvetica", 11, "bold"), bg="#f5f5f5", fg="#333"
+        ).grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10, 0)); row_idx += 1
+
+        self.services_container = tk.Frame(form_frame, bg="#f5f5f5")
+        self.services_container.grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=(5, 5)); row_idx += 1
+        
+        self.service_rows = []
+
+        def add_service_row():
+            row_frame = tk.Frame(self.services_container, bg="#f5f5f5")
+            row_frame.pack(fill="x", pady=2)
+
+            service_var = tk.StringVar()
+            combo = ttk.Combobox(
+                row_frame, textvariable=service_var,
+                values=SERVICES, state="readonly",
+                font=("Helvetica", 11), width=18
+            )
+            combo.pack(side="left", padx=(0, 10))
+
+            price_var = tk.StringVar()
+            price_entry = tk.Entry(
+                row_frame, textvariable=price_var,
+                font=("Helvetica", 11),
+                relief="solid", bd=1, bg="white", width=12
+            )
+            price_entry.pack(side="left", padx=(0, 10))
+            price_var.trace_add("write", self._recalc)
+            
+            service_data = {
+                "frame": row_frame,
+                "service": service_var,
+                "price": price_var
+            }
+            
+            if len(self.service_rows) > 0:
+                btn_remove = tk.Button(
+                    row_frame, text="✖", font=("Helvetica", 10),
+                    fg="red", bg="#f5f5f5", relief="flat", cursor="hand2",
+                    command=lambda: remove_service_row(row_frame, service_data)
+                )
+                btn_remove.pack(side="left")
+
+            self.service_rows.append(service_data)
+
+        def remove_service_row(row_frame, service_data):
+            row_frame.destroy()
+            self.service_rows.remove(service_data)
+            self._recalc()
+
+        add_service_row()
+        
+        btn_add = tk.Button(
+            form_frame, text="+ Добавить услугу", font=("Helvetica", 10),
+            bg="#e0e0e0", fg="#333", relief="flat", cursor="hand2",
+            command=add_service_row
+        )
+        btn_add.grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(0, 10)); row_idx += 1
+
+        add_label_entry(row_idx,  "Материал (₸)", "material"); row_idx += 1
+        add_label_entry(row_idx,  "Сумма рабочего", "worker",  readonly=True); row_idx += 1
+        add_label_entry(row_idx,  "Расход (₸)",   "rashod"); row_idx += 1
+        add_label_entry(row_idx,  "Касса (₸)",    "kassa",    readonly=True); row_idx += 1
+        add_label_entry(row_idx,  "Примечание",   "note"); row_idx += 1
 
         # Live calculation bindings
-        self.entries["price"].trace_add("write", self._recalc)
         self.entries["material"].trace_add("write", self._recalc)
         self.entries["rashod"].trace_add("write", self._recalc)
 
@@ -167,11 +217,19 @@ class DetailingApp:
             return 0.0
 
     def _recalc(self, *args):
-        price = self._safe_float("price")
+        total_price = 0.0
+        for row in self.service_rows:
+            val = row["price"].get().strip()
+            if val:
+                try:
+                    total_price += float(val)
+                except ValueError:
+                    pass
+
         material = self._safe_float("material")
         rashod = self._safe_float("rashod")
-        self.entries["worker"].set(str(round(price - material, 2)))
-        self.entries["kassa"].set(str(round(price - rashod, 2)))
+        self.entries["worker"].set(str(round(total_price - material, 2)))
+        self.entries["kassa"].set(str(round(total_price - rashod, 2)))
 
     def _get_next_number(self):
         if not os.path.exists(EXCEL_FILE):
@@ -196,36 +254,54 @@ class DetailingApp:
     def _save(self):
         marka   = self.entries["marka"].get().strip()
         gnomer  = self.entries["gnomer"].get().strip()
-        service = self.entries["service"].get().strip()
-        price_s = self.entries["price"].get().strip()
 
         # Validation
         missing = []
         if not marka:   missing.append("Марка")
         if not gnomer:  missing.append("г.номер")
-        if not service: missing.append("Услуга")
-        if not price_s: missing.append("Цена")
+        
+        valid_services = []
+        total_price = 0.0
+        
+        for row in self.service_rows:
+            srv = row["service"].get().strip()
+            prc_s = row["price"].get().strip()
+            
+            if srv and prc_s:
+                try:
+                    prc = float(prc_s)
+                    valid_services.append(f"{srv} ({prc})")
+                    total_price += prc
+                except ValueError:
+                    messagebox.showerror("Ошибка", f"❌ Цена для услуги '{srv}' должна быть числом")
+                    return
+            elif srv and not prc_s:
+                missing.append("Цена")
+            elif not srv and prc_s:
+                missing.append("Услуга")
+
+        if not valid_services and not missing:
+            missing.append("Услуга")
+            missing.append("Цена")
 
         if missing:
+            # Deduplicate missing fields
+            missing = list(dict.fromkeys(missing))
             messagebox.showerror(
                 "Ошибка",
                 f"❌ Заполните обязательные поля: {', '.join(missing)}"
             )
             return
 
-        try:
-            price = float(price_s)
-        except ValueError:
-            messagebox.showerror("Ошибка", "❌ Цена должна быть числом")
-            return
+        service_str = ", ".join(valid_services)
 
         owner    = self.entries["owner"].get().strip()
         if owner == "87XXXXXXXXX":
             owner = ""
         material = self._safe_float("material")
         rashod   = self._safe_float("rashod")
-        worker   = round(price - material, 2)
-        kassa    = round(price - rashod, 2)
+        worker   = round(total_price - material, 2)
+        kassa    = round(total_price - rashod, 2)
         note     = self.entries["note"].get().strip()
 
         self._ensure_excel()
@@ -233,8 +309,8 @@ class DetailingApp:
         ws = wb.active
         num = ws.max_row  # header is row 1, so next num = max_row
         row_num = f"#{num}"
-        ws.append([row_num, marka, gnomer, owner, service,
-                   price, material, worker, rashod, kassa, note])
+        ws.append([row_num, marka, gnomer, owner, service_str,
+                   total_price, material, worker, rashod, kassa, note])
         wb.save(EXCEL_FILE)
 
         messagebox.showinfo("Сохранено", f"✅ Запись {row_num} сохранена")
@@ -248,6 +324,14 @@ class DetailingApp:
                 var.set("0")
             else:
                 var.set("")
+        
+        # Clear service rows and leave only one
+        for row in self.service_rows[1:]:
+            row["frame"].destroy()
+        self.service_rows = [self.service_rows[0]]
+        self.service_rows[0]["service"].set("")
+        self.service_rows[0]["price"].set("")
+
         # Restore hints visually
         for widget in self.root.winfo_children():
             self._restore_hints_recursive(widget, hints)
